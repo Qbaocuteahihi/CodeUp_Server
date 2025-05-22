@@ -3,28 +3,24 @@ const User = require("../models/User");
 
 const authMiddleware = async (req, res, next) => {
   try {
-    // Lấy token từ header Authorization (dạng "Bearer token")
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Không có token" });
     }
 
-    // Giải mã token
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Tìm user theo id trong payload token
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      return res.status(401).json({ message: "Token không hợp lệ" });
-    }
+    // decoded.id hoặc decoded.userId phụ thuộc payload khi tạo token
+    const userId = decoded.id || decoded.userId;
+    if (!userId) return res.status(401).json({ message: "Token không hợp lệ" });
 
-    // Gán thông tin user vào req để các middleware sau dùng
+    const user = await User.findById(userId);
+    if (!user) return res.status(401).json({ message: "Người dùng không tồn tại" });
+
     req.user = user;
-
     next();
   } catch (err) {
-    // Nếu lỗi (token sai, hết hạn, v.v) thì trả về lỗi 401
     return res.status(401).json({ message: "Token không hợp lệ" });
   }
 };

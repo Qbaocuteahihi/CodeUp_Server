@@ -3,7 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const app = express();
-
+const favoriteRoutes = require("./routes/favoriteRoutes");
 const Course = require("./models/Course");
 const User = require("./models/User");
 const Payment = require("./models/Payment");
@@ -141,6 +141,7 @@ app.use("/api/courses", courseRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/uploads", express.static("uploads"));
+app.use("/api/favorites", favoriteRoutes);
 
 // Tạo admin mặc định
 const createDefaultAdmin = async () => {
