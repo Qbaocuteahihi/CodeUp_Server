@@ -32,7 +32,10 @@ exports.getFavorites = async (req, res) => {
 
   try {
     const favorites = await Favorite.find({ userId }).populate("courseId");
-    const courses = favorites.map((f) => f.courseId);
+    // Lọc bỏ courseId null
+    const courses = favorites
+      .map((f) => f.courseId)
+      .filter((course) => course !== null);
     res.json(courses);
   } catch {
     res.status(500).json({ message: "Lỗi máy chủ" });
