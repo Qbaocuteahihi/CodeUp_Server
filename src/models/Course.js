@@ -19,11 +19,19 @@ const CourseSchema = new mongoose.Schema({
   ratingCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
-// Middleware tự động thêm instructor vào enrolledUsers nếu chưa có
-CourseSchema.pre("save", function(next) {
-  if (this.instructor && !this.enrolledUsers.includes(this.instructor)) {
+// ✅ Middleware thêm instructor và admin vào enrolledUsers nếu chưa có
+CourseSchema.pre("save", function (next) {
+  const instructorId = this.instructor?.toString();
+  const adminId = "68163487bd331ae1a426130b";
+
+  if (instructorId && !this.enrolledUsers.some(id => id.toString() === instructorId)) {
     this.enrolledUsers.push(this.instructor);
   }
+
+  if (!this.enrolledUsers.some(id => id.toString() === adminId)) {
+    this.enrolledUsers.push(new mongoose.Types.ObjectId(adminId));
+  }
+
   next();
 });
 
