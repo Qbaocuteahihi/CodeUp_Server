@@ -3,16 +3,14 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const app = express();
-
+const favoriteRoutes = require("./routes/favoriteRoutes");
 const Course = require("./models/Course");
 const User = require("./models/User");
 const Payment = require("./models/Payment");
-
+const ratingRoutes = require("./routes/ratingRoutes");
 const courseRoutes = require("./routes/courseRoutes");
 const authRoutes = require("./routes/authRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
-const userRoutes = require("./routes/userRoutes");
-const adminRoutes = require('./routes/adminRoutes')
 
 const {
   VNPay,
@@ -143,9 +141,8 @@ app.use("/api/courses", courseRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/uploads", express.static("uploads"));
-app.use('/api/users', userRoutes);
-app.use('/api/admin', adminRoutes);
-
+app.use("/api/favorites", favoriteRoutes);
+app.use("/api/ratings", ratingRoutes);
 // Tạo admin mặc định
 const createDefaultAdmin = async () => {
   const adminEmail = "admin@codeup.com";
