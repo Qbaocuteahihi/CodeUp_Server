@@ -13,8 +13,10 @@ const authRoutes = require("./routes/authRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require('./routes/adminRoutes')
-const favoriteRoutes = require("./routes/favoriteRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
+const favoriteRoutes = require("./routes/favoriteRoutes");
+const instructorRoutes = require("./routes/instructorRoutes");
+
 const {
   VNPay,
   ignoreLogger,
@@ -148,6 +150,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/ratings", ratingRoutes);
+app.use("/api/instructor", instructorRoutes);
 
 // Tạo admin mặc định
 const createDefaultAdmin = async () => {
