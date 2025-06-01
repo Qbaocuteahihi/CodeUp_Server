@@ -2,7 +2,15 @@ const express = require("express");
 const router = express.Router();
 const Course = require("../models/Course");
 const CourseDetail = require("../models/CourseDetail");
+const courseController = require("../controllers/courseController");
 
+
+
+// API lấy quiz của khóa học
+router.get("/:id/quiz", courseController.getQuizByCourseId);
+
+// API tạo hoặc cập nhật quiz cho khóa học
+router.post("/:id/quiz", courseController.createOrUpdateQuiz);
 // ✅ GET tất cả khóa học: /api/courses
 router.get("/", async (req, res) => {
   try {

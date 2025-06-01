@@ -16,7 +16,7 @@ const adminRoutes = require('./routes/adminRoutes')
 const ratingRoutes = require("./routes/ratingRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const instructorRoutes = require("./routes/instructorRoutes");
-
+const courseController = require("./controllers/courseController");
 const {
   VNPay,
   ignoreLogger,
@@ -151,7 +151,11 @@ app.use('/api/admin', adminRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/instructor", instructorRoutes);
+app.use("/api/courses", courseRoutes);
 
+// Thêm 2 route quiz:
+app.get("/api/courses/:id/quiz", courseController.getQuizByCourseId);
+app.post("/api/courses/:id/quiz", courseController.createOrUpdateQuiz);
 // Tạo admin mặc định
 const createDefaultAdmin = async () => {
   const adminEmail = "admin@codeup.com";

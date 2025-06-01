@@ -1,25 +1,36 @@
 const mongoose = require("mongoose");
 
-// Mỗi bài học/phần trong một chương
 const LessonSchema = new mongoose.Schema({
-  title: { type: String, required: true },       // Tên phần/bài học
-  content: String,                               // Nội dung text
-  videoUrl: String                               // Link video
+  title: { type: String, required: true },
+  content: String,
+  videoUrl: String
 }, { _id: false });
 
-// Mỗi chương có nhiều bài học
 const ChapterSchema = new mongoose.Schema({
-  title: { type: String, required: true },       // Tên chương
-  description: String,                           // Mô tả chương
-  lessons: [LessonSchema]                        // Danh sách phần/bài học
+  title: { type: String, required: true },
+  description: String,
+  lessons: [LessonSchema]
 }, { _id: false });
 
-// Schema chi tiết của khóa học (CourseDetail)
+// Cập nhật QuizQuestionSchema
+const QuizQuestionSchema = new mongoose.Schema({
+  question: { type: String, required: true },
+  options: [{ type: String, required: true }],
+  // Sửa thành correctAnswerIndex để khớp với frontend
+  correctAnswerIndex: { type: Number, required: true } 
+}, { _id: false });
+
 const CourseDetailSchema = new mongoose.Schema({
-  courseId: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
-  duration: String,                              // Tổng thời lượng
-  type: String,                                   // Loại khóa học: Video/Text/Combo
-  chapters: [ChapterSchema]                      // Danh sách chương
+  courseId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "Course", 
+    required: true 
+  },
+  duration: String,
+  type: String,
+  chapters: [ChapterSchema],
+  quiz: [QuizQuestionSchema],
+   
 });
 
 module.exports = mongoose.model("CourseDetail", CourseDetailSchema);
