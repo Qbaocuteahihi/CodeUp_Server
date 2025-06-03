@@ -20,6 +20,23 @@ router.get("/", async (req, res) => {
     res.status(500).json({ message: "Lỗi server", error: err.message });
   }
 });
+// GET /api/courses/:id/quiz
+router.get("/:id/quiz", async (req, res) => {
+  try {
+    const course = await Course.findById(req.params.id).populate("details");
+
+    if (!course || !course.details) {
+      return res.status(404).json({ message: "Không tìm thấy khóa học hoặc chi tiết khóa học." });
+    }
+
+    const quiz = course.details.quiz || [];
+
+    res.json({ quiz });
+  } catch (error) {
+    console.error("Lỗi khi lấy quiz:", error);
+    res.status(500).json({ message: "Đã xảy ra lỗi khi lấy quiz." });
+  }
+});
 
 // ✅ GET khóa học theo ID: /api/courses/:id?userId=abc123
 router.get("/:id", async (req, res) => {
