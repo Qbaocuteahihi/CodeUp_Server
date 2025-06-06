@@ -25,7 +25,6 @@ router.put('/courses/:id/content', authenticate, requireRole('instructor'), asyn
   }
 });
 
-
 //thống kê khóa học của instructor
 router.get('/courses/:id/statistics', authenticate, requireRole('instructor'), async (req, res) => {
   const { id: courseId } = req.params;
@@ -50,7 +49,6 @@ router.get('/courses/:id/statistics', authenticate, requireRole('instructor'), a
     res.status(500).json({ message: 'Lỗi server', error: err.message });
   }
 });
-
 
 const checkInstructor = async (req, res, next) => {
   try {
@@ -89,7 +87,6 @@ router.get('/courses/:userId', async (req, res) => {
     res.status(500).json({ message: 'Lỗi server', error: err.message });
   }
 });
-
 
 // Lấy danh sách học viên đã mua khóa học của instructor (không yêu cầu token)
 router.get('/students/:userId', async (req, res) => {
@@ -149,3 +146,4 @@ router.get('/students/:userId', async (req, res) => {
   }
 });
 module.exports = router;
+ 

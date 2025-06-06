@@ -1,6 +1,6 @@
 const Course = require("../models/Course");
 const User = require("../models/User");
-
+const Instructor = require("../models/instructor");
 const CourseDetail = require("../models/CourseDetail");
 
 exports.getCourseById = async (req, res) => {
@@ -9,103 +9,120 @@ exports.getCourseById = async (req, res) => {
 
     const course = await Course.findById(courseId)
       .populate("instructor")
-      .populate({
-        path: "details",
-        populate: {
-          path: "chapters.lessons"
-        }
-      })
+      .populate("details")
       .lean();
 
     if (!course) {
       return res.status(404).json({ message: "Không tìm thấy khóa học" });
     }
 
+    // Kiểm tra user đã đăng nhập chưa
     if (!req.user) {
-      return res.status(401).json({ message: "Bạn cần đăng nhập để truy cập khóa học" });
+      return res
+        .status(401)
+        .json({ message: "Bạn cần đăng nhập để truy cập khóa học" });
     }
 
     const userId = req.user._id.toString();
+
+    // Vì đang dùng .lean() nên course.instructor là object, kiểm tra id chính xác
     const isOwner = course.instructor._id.toString() === userId;
+
+    // enrolledUsers có thể là array ObjectId (string), so sánh bằng chuỗi
     const isEnrolled = course.enrolledUsers.some(
       (userIdInCourse) => userIdInCourse.toString() === userId
     );
 
     if (!isOwner && !isEnrolled) {
-      return res.status(403).json({ message: "Bạn cần mua khóa học để truy cập." });
+      return res
+        .status(403)
+        .json({ message: "Bạn cần mua khóa học để truy cập." });
     }
 
     return res.status(200).json(course);
   } catch (error) {
     console.error("Lỗi khi lấy chi tiết khóa học:", error);
-    return res.status(500).json({ 
-      message: "Lỗi server khi lấy chi tiết khóa học",
-      error: error.message 
-    });
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi lấy chi tiết khóa học" });
   }
 };
 
 exports.createCourse = async (req, res) => {
-  try {
-    const {
-      title,
-      description,
-      category,
-      level,
-      price,
-      duration,
-      imageUrl,
-      details, // details giờ đã bao gồm quiz
-    } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
+  try {
+    const { details, ...courseData } = req.body;
     const instructorId = req.user._id;
 
-    let courseDetail = null;
-    if (details) {
-      // Tạo courseDetail từ details (đã bao gồm quiz)
-      courseDetail = new CourseDetail(details);
-      await courseDetail.save();
-    }
-
+    // 1. TẠO COURSE TRƯỚC
     const course = new Course({
-      title,
-      description,
-      category,
-      level,
-      price,
-      duration,
-      imageUrl,
+      ...courseData,
       instructor: instructorId,
-      details: courseDetail ? courseDetail._id : null,
       enrolledUsers: [instructorId],
     });
+    await course.save({ session });
 
-    await course.save();
-
-    // Cập nhật thông tin người dùng (sử dụng User model thay vì Instructor)
-    const instructor = await User.findById(instructorId);
-    if (instructor) {
-      // Đảm bảo các trường này tồn tại trong User schema
-      instructor.numberOfCoursesCreated = (instructor.numberOfCoursesCreated || 0) + 1;
-      
-      if (!instructor.coursesTaught.includes(course._id)) {
-        instructor.coursesTaught.push(course._id);
+    // 2. TẠO COURSE DETAIL (NẾU CÓ)
+    let courseDetail = null;
+    if (details) {
+      // CHUẨN HÓA DỮ LIỆU QUIZ
+      if (details.quiz && Array.isArray(details.quiz)) {
+        details.quiz = details.quiz.map((q) => ({
+          ...q,
+          correctAnswerIndex: Number(q.correctAnswerIndex),
+        }));
       }
-      
-      await instructor.save();
+
+      courseDetail = new CourseDetail({
+        ...details,
+        courseId: course._id,
+      });
+      await courseDetail.save({ session });
+
+      // 3. CẬP NHẬT REFERENCE
+      course.details = courseDetail._id;
+      await course.save({ session });
     }
 
-    return res.status(201).json({ 
-      message: "Khóa học đã được tạo thành công", 
-      course,
-      details: courseDetail
+    // 4. CẬP NHẬT INSTRUCTOR
+    await Instructor.findByIdAndUpdate(
+      instructorId,
+      {
+        $inc: { numberOfCoursesCreated: 1 },
+        $addToSet: { coursesTaught: course._id },
+      },
+      { session }
+    );
+
+    await session.commitTransaction();
+
+    const result = await Course.findById(course._id).populate("details").exec();
+
+    return res.status(201).json({
+      message: "Khóa học đã được tạo thành công",
+      course: result,
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("Lỗi khi tạo khóa học:", error);
-    return res.status(500).json({ 
+
+    // XỬ LÝ LỖI VALIDATION CHI TIẾT
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({
+        message: "Dữ liệu không hợp lệ",
+        errors,
+      });
+    }
+
+    return res.status(500).json({
       message: "Đã xảy ra lỗi khi tạo khóa học",
-      error: error.message 
+      error: error.message,
     });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -117,16 +134,23 @@ exports.enrollStudent = async (req, res) => {
     const course = await Course.findById(courseId);
 
     if (!student || !course) {
-      return res.status(404).json({ message: "Không tìm thấy student hoặc khóa học" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy student hoặc khóa học" });
     }
 
+    // Kiểm tra student đã đăng ký chưa
     if (student.enrolledCourses.includes(course._id)) {
-      return res.status(400).json({ message: "Student đã đăng ký khóa học này" });
+      return res
+        .status(400)
+        .json({ message: "Student đã đăng ký khóa học này" });
     }
 
+    // Thêm khóa học vào danh sách khóa học của student
     student.enrolledCourses.push(course._id);
     await student.save();
 
+    // Thêm student vào danh sách enrolledUsers của course (nếu chưa có)
     if (!course.enrolledUsers.includes(student._id)) {
       course.enrolledUsers.push(student._id);
       await course.save();
@@ -135,27 +159,33 @@ exports.enrollStudent = async (req, res) => {
     return res.status(200).json({ message: "Đăng ký khóa học thành công" });
   } catch (error) {
     console.error("Lỗi khi đăng ký khóa học:", error);
-    return res.status(500).json({ message: "Đã xảy ra lỗi khi đăng ký khóa học", error });
+    return res
+      .status(500)
+      .json({ message: "Đã xảy ra lỗi khi đăng ký khóa học", error });
   }
 };
 
+//xóa khóa học
 exports.deleteCourse = async (req, res) => {
   try {
     const courseId = req.params.id;
 
+    // Tìm khóa học theo ID
     const course = await Course.findById(courseId);
 
     if (!course) {
       return res.status(404).json({ message: "Không tìm thấy khóa học" });
     }
 
+    // Xóa khóa học
     await Course.findByIdAndDelete(courseId);
 
+    // Cập nhật số lượng khóa học của giảng viên
     const instructor = await Instructor.findById(course.instructor);
     if (instructor) {
       instructor.numberOfCoursesCreated -= 1;
       instructor.coursesTaught = instructor.coursesTaught.filter(
-        (id) => id.toString() !== course._id.toString()
+        (courseId) => courseId.toString() !== course._id.toString()
       );
       await instructor.save();
     }
@@ -163,17 +193,22 @@ exports.deleteCourse = async (req, res) => {
     return res.status(200).json({ message: "Khóa học đã được xóa thành công" });
   } catch (error) {
     console.error("Lỗi khi xóa khóa học:", error);
-    return res.status(500).json({ message: "Đã xảy ra lỗi khi xóa khóa học", error });
+    return res
+      .status(500)
+      .json({ message: "Đã xảy ra lỗi khi xóa khóa học", error });
   }
 };
 
+// Quizz
 exports.getQuizByCourseId = async (req, res) => {
   try {
     const courseId = req.params.id;
 
     const course = await Course.findById(courseId).populate("details");
     if (!course || !course.details) {
-      return res.status(404).json({ message: "Không tìm thấy chi tiết khóa học" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy chi tiết khóa học" });
     }
 
     return res.status(200).json({ quiz: course.details.quiz || [] });
@@ -198,9 +233,9 @@ exports.createOrUpdateQuiz = async (req, res) => {
     let courseDetail = await CourseDetail.findOne({ courseId: course._id });
 
     if (!courseDetail) {
-      courseDetail = new CourseDetail({ 
+      courseDetail = new CourseDetail({
         courseId: course._id,
-        quiz 
+        quiz,
       });
     } else {
       courseDetail.quiz = quiz;
@@ -214,15 +249,95 @@ exports.createOrUpdateQuiz = async (req, res) => {
       await course.save();
     }
 
-    return res.status(200).json({ 
-      message: "Quiz đã được cập nhật", 
-      quiz: courseDetail.quiz 
+    return res.status(200).json({
+      message: "Quiz đã được cập nhật",
+      quiz: courseDetail.quiz,
     });
   } catch (error) {
     console.error("Lỗi khi cập nhật quiz:", error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: "Lỗi server khi cập nhật quiz",
-      error: error.message 
+      error: error.message,
     });
+  }
+};
+
+
+exports.updateCourse = async (req, res) => {
+  try {
+    const courseId = req.params.id;
+    const userId = req.user._id.toString();
+    const userRole = req.user.role;
+
+    // Tìm khóa học
+    const course = await Course.findById(courseId);
+    if (!course) return res.status(404).json({ message: "Khóa học không tồn tại" });
+
+    // Kiểm tra quyền (chỉ instructor hoặc admin được sửa)
+    if (course.instructor.toString() !== userId && userRole !== "admin") {
+      return res.status(403).json({ message: "Bạn không có quyền sửa khóa học này" });
+    }
+
+    // Các trường được phép cập nhật trong Course
+    const updatableCourseFields = [
+      "title",
+      "description",
+      "price",
+      "imageUrl",
+      "category",
+      "duration",
+      "level",
+      "published",
+    ];
+    updatableCourseFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        course[field] = req.body[field];
+      }
+    });
+
+    // Xử lý cập nhật CourseDetail (chi tiết)
+    if (req.body.details) {
+      let courseDetail;
+
+      if (course.details) {
+        // Tìm CourseDetail đã có
+        courseDetail = await CourseDetail.findById(course.details);
+        if (!courseDetail) {
+          // Nếu không tồn tại thì tạo mới
+          courseDetail = new CourseDetail({ courseId });
+        }
+      } else {
+        // Nếu course chưa có details thì tạo mới
+        courseDetail = new CourseDetail({ courseId });
+      }
+
+      // Các trường được cập nhật trong CourseDetail
+      const detailFields = ["duration", "type", "chapters", "quiz"];
+      detailFields.forEach((field) => {
+        if (req.body.details[field] !== undefined) {
+          courseDetail[field] = req.body.details[field];
+        }
+      });
+
+      await courseDetail.save();
+
+      // Gán lại ObjectId của details vào Course nếu cần
+      if (!course.details) {
+        course.details = courseDetail._id;
+      }
+    }
+
+    await course.save();
+
+    // Populate details (bao gồm quiz) để trả về
+    const updatedCourse = await Course.findById(courseId).populate("details");
+
+    return res.status(200).json({
+      message: "Cập nhật khóa học thành công",
+      course: updatedCourse,
+    });
+  } catch (error) {
+    console.error("Lỗi khi cập nhật khóa học:", error);
+    return res.status(500).json({ message: "Lỗi server" });
   }
 };

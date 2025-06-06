@@ -12,25 +12,41 @@ const ChapterSchema = new mongoose.Schema({
   lessons: [LessonSchema]
 }, { _id: false });
 
-// Cập nhật QuizQuestionSchema
 const QuizQuestionSchema = new mongoose.Schema({
   question: { type: String, required: true },
   options: [{ type: String, required: true }],
-  // Sửa thành correctAnswerIndex để khớp với frontend
-  correctAnswerIndex: { type: Number, required: true } 
+  correctAnswerIndex: { 
+    type: Number, 
+    required: true,
+    validate: {
+      validator: function(value) {
+        return value >= 0 && value < this.options.length;
+      },
+      message: props => `Chỉ số câu trả lời (${props.value}) không hợp lệ`
+    }
+  }
 }, { _id: false });
 
 const CourseDetailSchema = new mongoose.Schema({
   courseId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: "Course", 
-    required: true 
+    required: true,
+    unique: true // ĐẢM BẢO 1:1 VỚI COURSE
   },
   duration: String,
   type: String,
   chapters: [ChapterSchema],
-  quiz: [QuizQuestionSchema],
-   
+  quiz: {
+    type: [QuizQuestionSchema],
+    validate: {
+      validator: function(v) {
+        // KIỂM TRA ÍT NHẤT 1 CÂU HỎI
+        return v.length > 0; 
+      },
+      message: "Quiz phải có ít nhất 1 câu hỏi"
+    }
+  }
 });
 
 module.exports = mongoose.model("CourseDetail", CourseDetailSchema);
