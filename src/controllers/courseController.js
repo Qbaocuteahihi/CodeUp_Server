@@ -2,6 +2,7 @@ const Course = require("../models/Course");
 const User = require("../models/User");
 const Instructor = require("../models/instructor");
 const CourseDetail = require("../models/CourseDetail");
+const  QuizProgress = require("../models/QuizProgress");
 
 exports.getCourseById = async (req, res) => {
   try {
@@ -262,7 +263,6 @@ exports.createOrUpdateQuiz = async (req, res) => {
   }
 };
 
-
 exports.updateCourse = async (req, res) => {
   try {
     const courseId = req.params.id;
@@ -341,3 +341,4 @@ exports.updateCourse = async (req, res) => {
     return res.status(500).json({ message: "Lỗi server" });
   }
 };
+

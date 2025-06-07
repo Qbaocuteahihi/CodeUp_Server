@@ -7,7 +7,7 @@ const app = express();
 const Course = require("./models/Course");
 const User = require("./models/User");
 const Payment = require("./models/Payment");
-
+const quizProgressRoutes = require('./routes/quizProgressRoutes');
 const courseRoutes = require("./routes/courseRoutes");
 const authRoutes = require("./routes/authRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
@@ -153,7 +153,7 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/instructor", instructorRoutes);
 app.use("/api/courses", courseRoutes);
-
+app.use('/api/quiz-progress', quizProgressRoutes);
 // Thêm 2 route quiz:
 app.get("/api/courses/:id/quiz", courseController.getQuizByCourseId);
 app.post("/api/courses/:id/quiz", courseController.createOrUpdateQuiz);
