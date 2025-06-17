@@ -39,13 +39,7 @@ const CourseDetailSchema = new mongoose.Schema({
   chapters: [ChapterSchema],
   quiz: {
     type: [QuizQuestionSchema],
-    validate: {
-      validator: function(v) {
-        // KIỂM TRA ÍT NHẤT 1 CÂU HỎI
-        return v.length > 0; 
-      },
-      message: "Quiz phải có ít nhất 1 câu hỏi"
-    }
+    
   }
 });
 
