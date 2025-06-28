@@ -16,6 +16,8 @@ const adminRoutes = require("./routes/adminRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const instructorRoutes = require("./routes/instructorRoutes");
+const path = require("path");
+
 const courseController = require("./controllers/courseController");
 const {
   VNPay,
@@ -128,6 +130,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/uploads", express.static("uploads"));
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/instructor", instructorRoutes);

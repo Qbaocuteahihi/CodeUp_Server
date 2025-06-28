@@ -4,7 +4,7 @@ const Course = require('../models/Course');
 const Enrollment = require('../models/Enrollment');
 const { authenticate } = require('../middlewares/auth');
 const userController = require('../controllers/userController');
-
+const upload = require("../middlewares/uploadMiddleware");
 router.get('/courses', authenticate, async (req, res) => {
     const { search } = req.query;
     try {
@@ -46,11 +46,10 @@ router.get('/', userController.getAllUsers);
 
 // Lấy người dùng theo ID
 router.get('/:id', userController.getUserById);
-
+router.put("/:userId", upload.single("profilePicture"), userController.updateUser);
 // Xoá người dùng
 router.delete('/:userId', userController.deleteUser);
 
-// Cập nhật người dùng
-router.put('/:userId', userController.updateUser);
+
 
 module.exports = router;
